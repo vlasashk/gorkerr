@@ -16,15 +16,15 @@ var (
 )
 
 type WorkerPoolWithErr[T any] struct {
-	workers   int
+	ctx       context.Context
 	fn        func(T) error
-	eg        *errgroup.Group
-	once      sync.Once
 	jobs      chan T
+	eg        *errgroup.Group
+	cancel    context.CancelFunc
+	workers   int
+	once      sync.Once
 	isClosed  atomic.Bool
 	isStarted atomic.Bool
-	ctx       context.Context
-	cancel    context.CancelFunc
 	inQueue   atomic.Int32
 }
 
