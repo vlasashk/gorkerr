@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -65,7 +65,7 @@ func (wp *WorkerPoolWithErr[T]) close() {
 		wp.cancel()
 		// Waiting to release any payload that might stuck in Feed() select
 		for wp.inQueue.Load() > 0 {
-			time.Sleep(time.Millisecond)
+			runtime.Gosched()
 		}
 		close(wp.jobs)
 	})
