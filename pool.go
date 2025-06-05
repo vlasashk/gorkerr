@@ -38,7 +38,7 @@ func NewWorkerPoolWithErr[T any](workers int, fn func(T) error) *WorkerPoolWithE
 	}
 }
 
-// Start - Starts worker pool by spawning workers, pool lifecycle should be controlled manually with StopAndWait
+// Start Starts worker pool by spawning workers, pool lifecycle should be controlled manually with StopAndWait
 func (wp *WorkerPoolWithErr[T]) Start() {
 	if !wp.isStarted.CompareAndSwap(false, true) {
 		return
@@ -54,10 +54,10 @@ func (wp *WorkerPoolWithErr[T]) Start() {
 	}
 }
 
-// close - stops worker pool by closing channel, guards WorkerPool.jobs channel to avoid panic.
+// shutdown stops worker pool by closing channel, guards WorkerPool.jobs channel to avoid panic.
 //
-// After calling Close all incoming payload from Feed will be ignored to avoid write in isClosed channel
-func (wp *WorkerPoolWithErr[T]) close() {
+// After calling Close, all incoming payloads from Feed will be ignored to avoid writing in a closed channel
+func (wp *WorkerPoolWithErr[T]) shutdown() {
 	wp.once.Do(func() {
 		// Sets barrier for new incoming payloads
 		wp.isClosed.Store(true)
@@ -67,25 +67,27 @@ func (wp *WorkerPoolWithErr[T]) close() {
 		for wp.inQueue.Load() > 0 {
 			runtime.Gosched()
 		}
+
 		close(wp.jobs)
 	})
 }
 
-// StopAndWait - waits until all workers will finish remaining jobs.
+// StopAndWait waits until all workers will finish remaining jobs.
 func (wp *WorkerPoolWithErr[T]) StopAndWait() error {
 	if !wp.isStarted.Load() {
 		return ErrNotActive
 	}
 
-	wp.close()
+	wp.shutdown()
 	return wp.eg.Wait()
 }
 
-// Feed - adds job into queue to perform by workers
+// Feed adds a job into queue to perform by workers
 func (wp *WorkerPoolWithErr[T]) Feed(payload T) {
 	if wp.isClosed.Load() {
 		return
 	}
+
 	wp.inQueue.Add(1)
 	defer wp.inQueue.Add(-1)
 
@@ -97,7 +99,8 @@ func (wp *WorkerPoolWithErr[T]) Feed(payload T) {
 
 func (wp *WorkerPoolWithErr[T]) worker() func() error {
 	return func() (err error) {
-		defer wp.close()
+		defer wp.shutdown()
+
 		defer func() {
 			if r := recover(); r != nil {
 				err = fmt.Errorf("worker panic: %v", r)
@@ -109,6 +112,7 @@ func (wp *WorkerPoolWithErr[T]) worker() func() error {
 				return err
 			}
 		}
+
 		return nil
 	}
 }
