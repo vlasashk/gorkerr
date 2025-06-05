@@ -38,7 +38,10 @@ func NewWorkerPoolWithErr[T any](workers int, fn func(T) error) *WorkerPoolWithE
 	}
 }
 
-// Start Starts worker pool by spawning workers, pool lifecycle should be controlled manually with StopAndWait
+// Start initiates the worker pool.
+// Can only be called once.
+// Workers will process jobs until an error occurs or StopAndWait is called.
+// When any worker encounters an error, the entire pool shuts down immediately.
 func (wp *WorkerPoolWithErr[T]) Start() {
 	if !wp.isStarted.CompareAndSwap(false, true) {
 		return
